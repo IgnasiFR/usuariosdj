@@ -2,6 +2,7 @@ from django import forms
 from .models import User
 from django.contrib.auth import authenticate
 
+
 class UserRegisterForm(forms.ModelForm):
 
     password1 = forms.CharField(label = 'Contraseña', required= True, 
@@ -56,5 +57,23 @@ class LoginForm(forms.Form):
          if not authenticate(username=username, password=password):
              raise forms.ValidationError('Los datos de usuario no son correctos')
          return self.cleaned_data
+
+
+class UpdatePasswordForm(forms.Form):
+
+     password1 = forms.CharField(label = 'Contraseña', required= True, 
+                                widget=forms.PasswordInput(attrs={
+                                    'placeholder': 'Contraseña actual'
+                                }
+                            )
+                        )
+     
+     password2 = forms.CharField(label = 'Contraseña', required= True, 
+                                widget=forms.PasswordInput(attrs={
+                                    'placeholder': 'Contraseña nueva'
+                                }
+                            )
+                        )
+     
 
 
