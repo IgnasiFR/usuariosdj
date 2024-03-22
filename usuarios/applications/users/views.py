@@ -1,14 +1,17 @@
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.core.mail import send_mail
 from django.views.generic.edit import FormView
-from .forms import UserRegisterForm,LoginForm,UpdatePasswordForm
+from .forms import UserRegisterForm,LoginForm,UpdatePasswordForm,VerificationForm
 from .models import User
 from django.urls import reverse_lazy,reverse
 from django.contrib.auth import authenticate, login, logout
 from django.views.generic import View
 from django.http import HttpResponseRedirect
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .forms import forms
+from .functions import code_generator
+
+
 # Create your views here.
 class UserRegisterView(FormView):
     template_name = 'users/register.html'
@@ -16,17 +19,29 @@ class UserRegisterView(FormView):
     success_url = "/"
 
     def form_valid(self, form):
+        #Generamos el codigo
+        codigo = code_generator()
 
-        User.objects.create_user(
+        usuario = User.objects.create_user(
             form.cleaned_data['username'],
             form.cleaned_data['email'],
             form.cleaned_data['password1'],
             nombres = form.cleaned_data['nombres'],
             apellidos = form.cleaned_data['apellidos'],
             genero = form.cleaned_data['genero'],
+            codregistro = codigo
         )
-        return super(UserRegisterView,self).form_valid(form)
+        #Enviar el codigo al email del usuario
+        asunto = "Confirmación de email"
+        mensaje = "Código de verificación de la cuenta: " + codigo
+        email_remitente = 'ignasidjango@gmail.com'
+
+        send_mail(asunto, mensaje, email_remitente, [form.cleaned_data['email'],])
+        #Redirigir a pantalla de validación
+        return HttpResponseRedirect(reverse('users_app:user-verification', kwargs={'pk': usuario.id}))
     
+
+
 class LoginUser(FormView):
     template_name = 'users/login.html'
     form_class = LoginForm
@@ -40,6 +55,10 @@ class LoginUser(FormView):
                 )
             login(self.request,user)
             return super(FormView,self).form_valid(form)
+    
+
+
+
     
 class LogoutView(View):
      def get(self, request, *args, **kargs):
@@ -78,3 +97,24 @@ class UpdatePassword(LoginRequiredMixin,FormView):
         # Asegúrate de manejar adecuadamente la renderización para formularios inválidos.
         return render(self.request, self.template_name, {'form': form})
     
+
+class CodeVerificationView(FormView):
+    template_name = 'users/verification.html'
+    form_class = VerificationForm
+    success_url = reverse_lazy('users_app:user-login')
+
+    def get_form_kwargs(self):
+         kwargs = super(CodeVerificationView,self).get_form_kwargs()
+         kwargs.update({
+              'pk': self.kwargs['pk'],
+              })
+         return kwargs
+
+    def form_valid(self, form):
+            User.objects.filter(
+                 id = self.kwargs['pk']
+            ).update(
+                 is_active = True
+            )
+            return super(CodeVerificationView,self).form_valid(form)
+     
